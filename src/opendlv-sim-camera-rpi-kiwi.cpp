@@ -520,8 +520,16 @@ int32_t main(int32_t argc, char **argv) {
         (commandlineArguments["yaw"].size() != 0) 
         ? std::stod(commandlineArguments["yaw"]) : 0.0));
 
+    auto onGlfwError{[](int32_t errorCode, char const *errorMsg)
+      {
+        std::cerr << "GLFW error: " << errorMsg << " (" << errorCode << ")" << std::endl;
+      }};
+
+    glfwSetErrorCallback(onGlfwError);
+
     // TODO: Make windowless https://sidvind.com/wiki/Opengl/windowless
     if (!glfwInit()) {
+      std::cerr << "Could not init GLFW" << std::endl;
       return -1;
     }
 
@@ -530,14 +538,15 @@ int32_t main(int32_t argc, char **argv) {
     }
     glfwWindowHint(GLFW_RESIZABLE, false);
     glfwWindowHint(GLFW_SAMPLES, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3); 
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1); 
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     GLFWwindow *window = glfwCreateWindow(width, height, argv[0], nullptr,
         nullptr);
     if (!window) {
+      std::cerr << "Could not open window" << std::endl;
       glfwTerminate();
       return -1;
     }
@@ -546,6 +555,7 @@ int32_t main(int32_t argc, char **argv) {
     glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
 
     if (glewInit() != GLEW_OK) {
+      std::cerr << "Could not init GLEW" << std::endl;
       glfwTerminate();
       return -1;
     }
