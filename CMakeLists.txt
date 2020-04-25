@@ -83,11 +83,16 @@ endif()
 
 set(OpenGL_GL_PREFERENCE "GLVND")
 find_package(OpenGL REQUIRED)
-include_directories(SYSTEM ${OPENGL_INCLUDE_DIRS})
+include_directories(SYSTEM ${OPENGL_INCLUDE_DIR})
 set(LIBRARIES ${LIBRARIES} ${OPENGL_LIBRARIES})
 
-find_package(glfw3 REQUIRED)
-set(LIBRARIES ${LIBRARIES} glfw GLEW)
+find_package(GLEW REQUIRED)
+include_directories(SYSTEM ${GLEW_INCLUDE_DIRS})
+set(LIBRARIES ${LIBRARIES} ${GLEW_LIBRARIES})
+
+find_package(X11 REQUIRED)
+include_directories(SYSTEM ${X11_INCLUDE_DIRS})
+set(LIBRARIES ${LIBRARIES} ${X11_LIBRARIES})
 
 add_executable(${PROJECT_NAME}
   ${CMAKE_CURRENT_SOURCE_DIR}/src/${PROJECT_NAME}.cpp

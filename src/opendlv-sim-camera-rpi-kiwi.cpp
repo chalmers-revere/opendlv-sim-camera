@@ -20,8 +20,16 @@
 #include <string>
 #include <unordered_map>
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
+
 #include <GL/glew.h>
-#include <GLFW/glfw3.h>
+#include <GL/glx.h>
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/glm.hpp>
@@ -39,6 +47,11 @@
 
 #include "cluon-complete.hpp"
 #include "opendlv-standard-message-set.hpp"
+
+#define GLX_CONTEXT_MAJOR_VERSION_ARB       0x2091
+#define GLX_CONTEXT_MINOR_VERSION_ARB       0x2092
+typedef GLXContext (*glXCreateContextAttribsARBProc)(Display*, GLXFBConfig, 
+    GLXContext, Bool, int32_t const *);
 
 struct Vertex {
   glm::vec3 pos;
@@ -129,6 +142,33 @@ struct MeshHandle {
     indexOffset(a_indexOffset),
     indexCount(a_indexCount) {}
 };
+
+static bool isExtensionSupported(char const *extList, char const *extension) {
+  char const *where = strchr(extension, ' ');
+  if (where || *extension == '\0') {
+    return false;
+  }
+  for (char const *start = extList;;) {
+    where = strstr(start, extension);
+    if (!where) {
+      break;
+    }
+    char const *terminator = where + strlen(extension);
+    if (where == start || *(where - 1) == ' ') {
+      if (*terminator == ' ' || *terminator == '\0') {
+        return true;
+      }
+    }
+    start = terminator;
+  }
+  return false;
+}
+
+static bool ctxErrorOccurred = false;
+static int32_t ctxErrorHandler(Display *, XErrorEvent *) {
+  ctxErrorOccurred = true;
+  return 0;
+}
 
 std::map<std::string, MeshHandle> loadModels(std::vector<ModelInfo> modelInfo,
     std::vector<BlockInfo> blockInfo, GLuint const *vbo, bool verbose)
@@ -520,50 +560,187 @@ int32_t main(int32_t argc, char **argv) {
         (commandlineArguments["yaw"].size() != 0) 
         ? std::stod(commandlineArguments["yaw"]) : 0.0));
 
-    auto onGlfwError{[](int32_t errorCode, char const *errorMsg)
+
+    Display *display = XOpenDisplay(nullptr);
+    if (!display) {
+      std::cerr << "Could not open X display" << std::endl;
+      return -1;
+    }
+
+    static int32_t visualAttribs[] =
       {
-        std::cerr << "GLFW error: " << errorMsg << " (" << errorCode << ")" << std::endl;
-      }};
+        GLX_X_RENDERABLE    , True,
+        GLX_DRAWABLE_TYPE   , GLX_WINDOW_BIT,
+        GLX_RENDER_TYPE     , GLX_RGBA_BIT,
+        GLX_X_VISUAL_TYPE   , GLX_TRUE_COLOR,
+        GLX_RED_SIZE        , 8,
+        GLX_GREEN_SIZE      , 8,
+        GLX_BLUE_SIZE       , 8,
+        GLX_ALPHA_SIZE      , 8,
+        GLX_DEPTH_SIZE      , 24,
+        GLX_STENCIL_SIZE    , 8,
+        GLX_DOUBLEBUFFER    , True,
+        //GLX_SAMPLE_BUFFERS  , 1,
+        //GLX_SAMPLES         , 4,
+        None
+      };
 
-    glfwSetErrorCallback(onGlfwError);
-
-    // TODO: Make windowless https://sidvind.com/wiki/Opengl/windowless
-    if (!glfwInit()) {
-      std::cerr << "Could not init GLFW" << std::endl;
+    int32_t glxMajor;
+    int32_t glxMinor;
+   
+    if (!glXQueryVersion(display, &glxMajor, &glxMinor) ||
+        ((glxMajor == 1 ) && (glxMinor < 3)) || (glxMajor < 1)) {
+      std::cerr << "Invalid GLX version" << std::endl;
       return -1;
     }
 
-    if (!verbose) {
-      glfwWindowHint(GLFW_VISIBLE, false);
+    int32_t fbcount;
+    GLXFBConfig *fbc = glXChooseFBConfig(display, DefaultScreen(display), 
+        visualAttribs, &fbcount);
+    if (!fbc) {
+      std::cerr << "Failed to retrieve a framebuffer config" << std::endl;
+      return -1;
     }
-    glfwWindowHint(GLFW_RESIZABLE, false);
-    glfwWindowHint(GLFW_SAMPLES, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1); 
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    if (verbose) {
+      std::clog << "Found " << fbcount << " matching FB configs" << std::endl;
+    }
 
-    GLFWwindow *window = glfwCreateWindow(width, height, argv[0], nullptr,
-        nullptr);
-    if (!window) {
-      std::cerr << "Could not open window" << std::endl;
-      glfwTerminate();
+    int32_t bestFbc = -1;
+    int32_t worstFbc = -1;
+    int32_t bestNumSamp = -1;
+    int32_t worstNumSamp = 999;
+
+    for (int32_t i{0}; i < fbcount; ++i) {
+      XVisualInfo *vi = glXGetVisualFromFBConfig(display, fbc[i]);
+      if (vi) {
+        int32_t sampBuf;
+        int32_t samples;
+        glXGetFBConfigAttrib(display, fbc[i], GLX_SAMPLE_BUFFERS, &sampBuf);
+        glXGetFBConfigAttrib(display, fbc[i], GLX_SAMPLES, &samples);
+
+        if (verbose) {
+          std::clog << "Matching fbconfig " << i << ", visual ID " 
+            << vi->visualid << ": SAMPLE_BUFFERS = " << sampBuf << ", SAMPLES = "
+            << samples << std::endl;
+        }
+        
+        if (bestFbc < 0 || (sampBuf && samples > bestNumSamp)) {
+          bestFbc = i;
+          bestNumSamp = samples;
+        }
+        if (worstFbc < 0 || (!sampBuf || samples < worstNumSamp)) {
+          worstFbc = i;
+          worstNumSamp = samples;
+        }
+      }
+      XFree(vi);
+    }
+
+    GLXFBConfig bestFbConfig = fbc[bestFbc];
+    XFree(fbc);
+
+    XVisualInfo *vi = glXGetVisualFromFBConfig(display, bestFbConfig);
+    if (verbose) {
+      std::clog << "Selected visual ID = " << vi->visualid << std::endl;
+    }
+
+    XSetWindowAttributes swa;
+    swa.colormap = XCreateColormap(display, RootWindow(display, vi->screen),
+        vi->visual, AllocNone);
+    swa.background_pixmap = None;
+    swa.border_pixel = 0;
+    swa.event_mask = StructureNotifyMask;
+    
+    Colormap cmap = swa.colormap;;
+
+    Window win = XCreateWindow(display, RootWindow(display, vi->screen), 0, 0,
+        width, height, 0, vi->depth, InputOutput, vi->visual, 
+        CWBorderPixel | CWColormap | CWEventMask, &swa);
+    if (!win) {
+      std::cerr << "Failed to create window" << std::endl;
+    }
+
+    XFree(vi);
+    if (verbose) {
+      XMapWindow(display, win);
+    }
+
+    char const *glxExts = glXQueryExtensionsString(display, 
+        DefaultScreen(display));
+
+    glXCreateContextAttribsARBProc glXCreateContextAttribsARB = 0;
+    glXCreateContextAttribsARB = (glXCreateContextAttribsARBProc)
+      glXGetProcAddressARB((GLubyte const *) "glXCreateContextAttribsARB");
+
+    GLXContext ctx = 0;
+
+    ctxErrorOccurred = false;
+    int32_t (*oldHandler)(Display *, XErrorEvent *) = 
+      XSetErrorHandler(&ctxErrorHandler);
+
+    if (!isExtensionSupported(glxExts, "GLX_ARB_create_context") ||
+        !glXCreateContextAttribsARB) {
+      if (verbose) {
+        std::clog << "Reverint to old GL context" << std::endl;
+      }
+      ctx = glXCreateNewContext(display, bestFbConfig, GLX_RGBA_TYPE, 0, True);
+    } else {
+      int32_t contextAttribs[] =
+        {
+          GLX_CONTEXT_MAJOR_VERSION_ARB, 3,
+          GLX_CONTEXT_MINOR_VERSION_ARB, 0,
+          //GLX_CONTEXT_FLAGS_ARB      , GLX_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB,
+          None
+        };
+
+      ctx = glXCreateContextAttribsARB(display, bestFbConfig, 0, True,
+          contextAttribs);
+
+      XSync(display, False);
+      if (!ctxErrorOccurred && ctx) {
+        if (verbose) {
+          std::clog << "Created context" << std::endl;
+        }
+      } else {
+        contextAttribs[1] = 1;
+        contextAttribs[3] = 0;
+
+        ctxErrorOccurred = false;
+
+        ctx = glXCreateContextAttribsARB(display, bestFbConfig, 0, True,
+            contextAttribs);
+      }
+    }
+    
+    XSync(display, False);
+    XSetErrorHandler(oldHandler);
+
+    if (ctxErrorOccurred || !ctx) {
+      std::cerr << "Failed to create an OpenGL context" << std::endl;
       return -1;
     }
 
-    glfwMakeContextCurrent(window);
-    glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
+    if (!glXIsDirect(display, ctx)) {
+      if (verbose) {
+        std::clog << "Indirect GLX rendering context obtained" << std::endl;
+      }
+    } 
 
-    if (glewInit() != GLEW_OK) {
-      std::cerr << "Could not init GLEW" << std::endl;
-      glfwTerminate();
-      return -1;
-    }
+    glXMakeCurrent(display, win, ctx);
+
+
+    glewInit();
+
+    std::string glVersion(reinterpret_cast<char const *>(
+          glGetString(GL_VERSION)));
+
+    XStoreName(display, win, glVersion.c_str());
 
     GLuint programId;
     GLint mvpId;
     GLint doI420Id;
     {
+      /*
       std::string vertexShaderGlsl = R"(#version 430
 
 in layout(location=0) vec3 position0;
@@ -614,6 +791,56 @@ void main()
     color2 = vec4(rgb, 1.0);
   }
 })";
+*/
+      
+      std::string vertexShaderGlsl = R"(#version 120
+
+attribute vec3 position0;
+attribute vec3 color0;
+attribute vec2 uv0;
+
+uniform mat4 u_mvp;
+
+varying vec3 color1;
+varying vec2 uv1;
+
+void main()
+{
+  vec4 v = vec4(position0, 1.0);
+  gl_Position =  u_mvp * v;
+  color1 = color0;
+  uv1 = uv0;
+})";
+
+      std::string fragmentShaderGlsl = R"(#version 120
+
+varying vec3 color1;
+varying vec2 uv1;
+
+uniform sampler2D mySampler;
+uniform bool u_do_i420;
+
+const mat4 rgbToYuv = mat4(
+  0.257,  0.439, -0.148, 0.0,
+  0.504, -0.368, -0.291, 0.0,
+  0.098, -0.071,  0.439, 0.0,
+  0.0625, 0.500,  0.500, 1.0
+);
+
+void main()
+{
+  vec3 rgb;
+  if (uv1 != vec2(0.0, 0.0)) {
+    rgb = texture2D(mySampler, uv1).rgb;
+  } else {
+    rgb = color1;
+  }
+  if (u_do_i420) {
+    gl_FragColor = rgbToYuv * vec4(rgb, 1.0);
+  } else {
+    gl_FragColor = vec4(rgb, 1.0);
+  }
+})";
 
       bool shaderError{false};
       programId = buildShaders(vertexShaderGlsl, fragmentShaderGlsl);
@@ -632,7 +859,12 @@ void main()
         shaderError = true;
       }
       if (shaderError) {
-        glfwTerminate();
+        glXMakeCurrent(display, 0, 0);
+        glXDestroyContext(display, ctx);
+
+        XDestroyWindow(display, win);
+        XFreeColormap(display, cmap);
+        XCloseDisplay(display);
         return -1;
       }
     }
@@ -835,8 +1067,8 @@ void main()
     std::vector<uint8_t> buf(memSize);
     bool flippedY{false};
     auto atFrequency{[&doI420Id, &fbo, &proj, &width, &height, &memSize, &buf,
-      &flippedY, &sharedMemoryArgb, &sharedMemoryI420, &drawScene, &window,
-      &verbose]() -> bool
+      &flippedY, &sharedMemoryArgb, &sharedMemoryI420, &drawScene, &display,
+      &win, &verbose]() -> bool
       {
         cluon::data::TimeStamp sampleTimeStamp = cluon::time::now();
 
@@ -878,10 +1110,9 @@ void main()
           glBindFramebuffer(GL_FRAMEBUFFER, 0);
           glUniform1i(doI420Id, 0);
           drawScene();
-          glfwSwapBuffers(window);
+  
+          glXSwapBuffers(display, win);
         }
-        glfwPollEvents();
-
         return true;
       }};
 
@@ -902,8 +1133,13 @@ void main()
     for (auto mi : meshHandles) {
       glDeleteVertexArrays(1, &mi.second.vao);
     }
+  
+    glXMakeCurrent(display, 0, 0);
+    glXDestroyContext(display, ctx);
 
-    glfwTerminate();
+    XDestroyWindow(display, win);
+    XFreeColormap(display, cmap);
+    XCloseDisplay(display);
   }
 
   return retCode;
