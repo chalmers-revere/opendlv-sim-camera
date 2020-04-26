@@ -731,10 +731,16 @@ int32_t main(int32_t argc, char **argv) {
 
     glewInit();
 
+    std::string glVendor(reinterpret_cast<char const *>(
+          glGetString(GL_VENDOR)));
+    std::string glRenderer(reinterpret_cast<char const *>(
+          glGetString(GL_RENDERER)));
     std::string glVersion(reinterpret_cast<char const *>(
           glGetString(GL_VERSION)));
+    
+    std::string title = glVendor + ", " + glRenderer + " (" + glVersion + ")";
 
-    XStoreName(display, win, glVersion.c_str());
+    XStoreName(display, win, title.c_str());
 
     GLuint programId;
     GLint mvpId;
