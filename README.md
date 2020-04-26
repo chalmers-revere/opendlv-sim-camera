@@ -19,7 +19,7 @@ version: "3.6"
 
 services:
     sim-global:
-        image: chalmersrevere/opendlv-sim-global-amd64:v0.0.5
+        image: chalmersrevere/opendlv-sim-global-amd64:v0.0.6
         network_mode: "host"
         command: "/usr/bin/opendlv-sim-global --cid=111 --freq=20 --frame-id=0 --x=0.0 --yaw=0.2"
 
