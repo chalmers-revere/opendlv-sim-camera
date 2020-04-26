@@ -15,7 +15,7 @@
 
 cmake_minimum_required(VERSION 3.2)
 
-project(opendlv-sim-camera-rpi-kiwi)
+project(opendlv-sim-camera)
 
 set(OPENDLV_STANDARD_MESSAGE_SET opendlv-standard-message-set-v0.9.6.odvd)
 set(CLUON_COMPLETE cluon-complete-v0.0.127.hpp)
