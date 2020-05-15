@@ -290,47 +290,14 @@ std::map<std::string, MeshHandle> loadModels(std::vector<ModelInfo> modelInfo,
     model.vertices.push_back({{xh, yh, zh}, {ytw, zth}, info.color});
     model.vertices.push_back({{xh, -yh, zh}, {0, zth}, info.color});
 
-    model.indices.push_back(0);
-    model.indices.push_back(1);
-    model.indices.push_back(2);
-    model.indices.push_back(0);
-    model.indices.push_back(2);
-    model.indices.push_back(3);
-
-    model.indices.push_back(4);
-    model.indices.push_back(5);
-    model.indices.push_back(6);
-    model.indices.push_back(4);
-    model.indices.push_back(6);
-    model.indices.push_back(7);
-
-    model.indices.push_back(8);
-    model.indices.push_back(9);
-    model.indices.push_back(10);
-    model.indices.push_back(8);
-    model.indices.push_back(10);
-    model.indices.push_back(11);
-
-    model.indices.push_back(12);
-    model.indices.push_back(13);
-    model.indices.push_back(14);
-    model.indices.push_back(12);
-    model.indices.push_back(14);
-    model.indices.push_back(15);
-
-    model.indices.push_back(16);
-    model.indices.push_back(17);
-    model.indices.push_back(18);
-    model.indices.push_back(16);
-    model.indices.push_back(18);
-    model.indices.push_back(19);
-
-    model.indices.push_back(20);
-    model.indices.push_back(21);
-    model.indices.push_back(22);
-    model.indices.push_back(20);
-    model.indices.push_back(22);
-    model.indices.push_back(23);
+    for (uint32_t i{0}; i <= 20; i = i + 4) {
+      model.indices.push_back(i);
+      model.indices.push_back(i + 1);
+      model.indices.push_back(i + 2);
+      model.indices.push_back(i);
+      model.indices.push_back(i + 2);
+      model.indices.push_back(i + 3);
+    }
 
     models.push_back(model);
   }
@@ -915,15 +882,22 @@ void main()
       std::string name;
       glm::vec3 position;
       float rotation;
+      bool visible;
 
-      MeshInstance(std::string a_name, glm::vec3 a_position, float a_rotation): 
-        name(a_name), position(a_position), rotation(a_rotation) {}
+      MeshInstance():
+        name(), position(), rotation(), visible() {}
+
+      MeshInstance(std::string a_name, glm::vec3 a_position, float a_rotation,
+          bool a_visible): 
+        name(a_name), position(a_position), rotation(a_rotation), 
+        visible(a_visible) {}
     };
     
     GLuint vbo[2];
     glGenBuffers(2, vbo);
 
     std::vector<MeshInstance> meshInstances;
+    std::map<uint32_t, MeshInstance> meshInstancesFrame;
     std::map<std::string, MeshHandle> meshHandles;
     {
       std::vector<ModelInfo> modelInfo;
@@ -943,12 +917,20 @@ void main()
             modelInfo.push_back({name, mapPath + "/" + file, 
                 mapPath + "/" + textureFile});
           }
-          for (auto const &i : j["instances"]) {
-            float x = i[0];
-            float y = i[1];
-            float z = i[2];
-            float a = i[3];
-            meshInstances.push_back({name, glm::vec3(x, y, z), a});
+          if (j.find("instances") != j.end()) {
+            for (auto const &i : j["instances"]) {
+              float x = i[0];
+              float y = i[1];
+              float z = i[2];
+              float a = i[3];
+              meshInstances.push_back({name, glm::vec3(x, y, z), a, true});
+            }
+          }
+          if (j.find("frames") != j.end()) {
+            for (auto const &i : j["frames"]) {
+              meshInstancesFrame[i] = {name, glm::vec3(0.0f, 0.0f, 0.0f), 0.0f,
+                false};
+            }
           }
         }
       }
@@ -978,7 +960,7 @@ void main()
             float y = i[1];
             float z = i[2];
             float a = i[3];
-            meshInstances.push_back({name, glm::vec3(x, y, z), a});
+            meshInstances.push_back({name, glm::vec3(x, y, z), a, true});
           }
         }
       }
@@ -996,59 +978,74 @@ void main()
         << " bytes) for an I420 image (width = " << width << ", height = " 
         << height << ")." << std::endl;
     }
+    
+    std::mutex meshInstancesFrameMutex;
 
     bool hasFrame{false};
     glm::mat4 view(glm::mat4(1.0f));
     std::mutex viewMutex;
-    auto onFrame{[&frameId, &mountPos, &mountRot, &view, &viewMutex, &hasFrame](
+    auto onFrame{[&frameId, &mountPos, &mountRot, &view, &viewMutex, &hasFrame,
+    &meshInstancesFrame, &meshInstancesFrameMutex](
         cluon::data::Envelope &&envelope)
       {
+        std::lock_guard<std::mutex> lock(meshInstancesFrameMutex);
+        double hpi = glm::pi<double>() / 2.0;
+        auto frame = cluon::extractMessage<opendlv::sim::Frame>(
+            std::move(envelope));
+        glm::vec3 framePos(frame.x(), frame.y(), frame.z());
+        double horizontalAngle = hpi - frame.yaw();
+
         uint32_t const senderStamp = envelope.senderStamp();
         if (frameId == senderStamp) {
-          auto frame = cluon::extractMessage<opendlv::sim::Frame>(
-              std::move(envelope));
-
-          glm::vec3 framePos(frame.x(), frame.y(), frame.z());
           glm::vec3 position = framePos + mountPos;
 
           double verticalAngle = 0.0f;//frame.pitch() + mountRot.y;
-          double horizontalAngle = -frame.yaw() + 3.14 / 2.0;
 
           glm::vec3 direction(
               std::cos(verticalAngle) * std::sin(horizontalAngle), 
               std::cos(verticalAngle) * std::cos(horizontalAngle),
               std::sin(verticalAngle));
 
-          glm::vec3 right = glm::vec3(std::sin(horizontalAngle + 3.14 / 2.0),
-              std::cos(horizontalAngle + 3.14 / 2.0), 0);
+          glm::vec3 right = glm::vec3(std::sin(horizontalAngle + hpi),
+              std::cos(horizontalAngle + hpi), 0);
           glm::vec3 up = glm::cross(right, direction);
 
-          {
-            std::lock_guard<std::mutex> lock(viewMutex);
-            view = glm::lookAt(position, position + direction, up);
-          }
+          glm::vec3 positionFlip(position.x, position.y, position.z);
+          view = glm::lookAt(positionFlip, positionFlip + direction, up);
 
           hasFrame = true;
+        }
+
+        if (meshInstancesFrame.find(senderStamp) != meshInstancesFrame.end()) {
+          meshInstancesFrame[senderStamp].visible = true;
+          meshInstancesFrame[senderStamp].position = framePos;
+          meshInstancesFrame[senderStamp].rotation = 
+            static_cast<float>(horizontalAngle);
         }
       }};
 
     glm::mat4 proj = glm::perspective(glm::radians(fovy), aspect, 0.1f, 100.0f);
     auto drawScene{[&hasFrame, &meshInstances, &meshHandles, &mvpId, &proj,
-      &view, &viewMutex]() {
+      &view, &viewMutex, &meshInstancesFrame, &meshInstancesFrameMutex]() {
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
       if (hasFrame) {
-        for (auto const &mi : meshInstances) {
-          glm::mat4 model = glm::translate(
-              glm::rotate(glm::mat4(1.0f), mi.rotation,
-                glm::vec3(0.0f, 0.0f, 1.0f)),
-              mi.position);
-
-          glm::mat4 mvp;
-          {
-            std::lock_guard<std::mutex> lock(viewMutex);
-            mvp = proj * view * model;
+        std::lock_guard<std::mutex> lock(meshInstancesFrameMutex);
+        std::vector<MeshInstance> mis = meshInstances;
+            
+        for (auto const &mi : meshInstancesFrame) {
+          if (mi.second.visible) {
+            mis.push_back(mi.second);
           }
+        }
+
+        for (auto const &mi : mis) {
+          glm::mat4 model = glm::mat4(1.0f);
+          model = glm::translate(model, mi.position);
+          model = glm::rotate(model, glm::pi<float>() - mi.rotation, 
+              glm::vec3(0.0f, 0.0f, 1.0f));
+
+          glm::mat4 mvp = proj * view * model;
           glUniformMatrix4fv(mvpId, 1, GL_FALSE, &mvp[0][0]);
           
           if (meshHandles[mi.name].textureId != 0) {
@@ -1116,7 +1113,7 @@ void main()
         return true;
       }};
 
-    glClearColor(0.0f, 0.0f, 0.4f, 0.0f);
+    glClearColor(0.2f, 0.2f, 0.2f, 0.0f);
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
     glUseProgram(programId);
