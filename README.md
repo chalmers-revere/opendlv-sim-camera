@@ -18,28 +18,27 @@ To run a complete camera simulation using docker-compose:
 version: "3.6"
 
 services:
+    sim-global:
+        image: chalmersrevere/opendlv-sim-global-amd64:v0.0.6
+        network_mode: "host"
+        command: "/usr/bin/opendlv-sim-global --cid=111 --freq=20 --frame-id=0 --x=0.0 --yaw=0.2"
+
+    sim-motor-kiwi:
+        image: chalmersrevere/opendlv-sim-motor-kiwi-amd64:v0.0.6
+        network_mode: "host"
+        command: "/usr/bin/opendlv-sim-motor-kiwi --cid=111 --freq=50 --frame-id=0"
+
     sim-camera:
         container_name: sim-camera
         image: chalmersrevere/opendlv-sim-camera:1_mesa
         ipc: "host"
-        net: "host"
+        network_mode: "host"
         volumes:
         - ${PWD}/resource/example_map:/opt/map
         - /tmp:/tmp
-        command: "--cid=111 --frame-id=0 --map-path=/opt/map --x=0.072 --z=0.064 --width=1280 --height=720 --fovy=48.8 --freq=20 --verbose"
-
-    video-x264-recorder-armhf:
-        image: chrberger/opendlv-video-x264-recorder:v0.0.4
-        restart: always
-        depends_on:
-        - device-camera-rpi
-        network_mode: "host"
-        ipc: "host"
-        working_dir: /recordings
-        volumes:
-        - /tmp:/tmp
-        - /home/pi/recordings:/recordings
-        command: "--cid=111 --name=img.i420 --width=1280 --height=720 --recsuffix=video-all"
+        environment:
+        - DISPLAY=${DISPLAY}
+        command: "--cid=111 --frame-id=0 --map-path=/opt/map --x=0.072 --z=0.064 --width=1280 --height=720 --fovy=48.8 --freq=5 --verbose"
 
     kiwi-view:
         container_name: kiwi-view
