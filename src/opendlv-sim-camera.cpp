@@ -478,6 +478,8 @@ int32_t main(int32_t argc, char **argv) {
       << "  --width=<Width of the output image> " << std::endl
       << "  --height=<Height of the output image> " << std::endl
       << "  --fovy=<Camera vertical field of view> " << std::endl
+      << "  [--timemod=<Time scale modifier for simulation speed, "
+      << "default: 1.0>] "
       << "  [--frame-id=<The frame to use for the true position, default: 0>] " 
       << std::endl
       << "  [--x=<Mount X position (forward), default: 0.0>] " << std::endl
@@ -503,6 +505,8 @@ int32_t main(int32_t argc, char **argv) {
     std::string const nameArgb{(commandlineArguments["name.argb"].size() != 0) 
       ? commandlineArguments["name.argb"] : "video0.argb"};
     uint32_t const freq = std::stoi(commandlineArguments["freq"]);
+    float const timemod = (commandlineArguments["timemod"].size() != 0) 
+      ? std::stof(commandlineArguments["timemod"]) : 1.0f;
     uint32_t const width = std::stoi(commandlineArguments["width"]);
     uint32_t const height = std::stoi(commandlineArguments["height"]);
     float const fovy = std::stof(commandlineArguments["fovy"]);
@@ -1126,7 +1130,7 @@ void main()
 
     cluon::OD4Session od4{cid};
     od4.dataTrigger(opendlv::sim::Frame::ID(), onFrame);
-    od4.timeTrigger(freq, atFrequency);
+    od4.timeTrigger(timemod * freq, atFrequency);
         
     glDeleteFramebuffers(2, fbo);
     glDeleteTextures(2, tex);
