@@ -10,11 +10,11 @@ To run this microservice using Docker
 start it as follows:
 
 ```
-docker run --rm -ti --init --ipc=host --net=host -v ${PWD}/myMap:/opt/map -v /tmp:/tmp -e DISPLAY=$DISPLAY chalmersrevere/opendlv-sim-camera-mesa:v0.0.1 --cid=111 --frame-id=0 --map-path=/opt/map --x=0.0 --z=0.095 --width=1280 --height=720 --fovy=48.8 --freq=7 --verbose
+docker run --rm -ti --init --ipc=host --net=host -v ${PWD}/myMap:/opt/map -v /tmp:/tmp -e DISPLAY=$DISPLAY chalmersrevere/opendlv-sim-camera-mesa:v0.0.1 --cid=111 --frame-id=0 --map-path=/opt/map --x=0.0 --z=0.095 --width=1280 --height=720 --fovy=48.8 --freq=7.5 --verbose
 ```
 for the mesa version, for Intel GPUs and software rendering (VirtualBox). To use the Nvidia version, run
 ```
-docker run --rm -ti --init --ipc=host --net=host -v ${PWD}/myMap:/opt/map -v /tmp:/tmp -e DISPLAY=$DISPLAY chalmersrevere/opendlv-sim-camera-nvidia:v0.0.1 --cid=111 --frame-id=0 --map-path=/opt/map --x=0.0 --z=0.095 --width=1280 --height=720 --fovy=48.8 --freq=7 --verbose
+docker run --rm -ti --init --ipc=host --net=host -v ${PWD}/myMap:/opt/map -v /tmp:/tmp -e DISPLAY=$DISPLAY chalmersrevere/opendlv-sim-camera-nvidia:v0.0.1 --cid=111 --frame-id=0 --map-path=/opt/map --x=0.0 --z=0.095 --width=1280 --height=720 --fovy=48.8 --freq=7.5 --verbose
 ```
 
 To run a complete camera simulation using docker-compose:
@@ -42,21 +42,18 @@ services:
       - /tmp:/tmp
     environment:
       - DISPLAY=${DISPLAY}
-    command: "--cid=111 --frame-id=0 --map-path=/opt/map --x=0.0 --z=0.095 --width=1280 --height=720 --fovy=48.8 --freq=7 --verbose"
+    command: "--cid=111 --frame-id=0 --map-path=/opt/map --x=0.0 --z=0.095 --width=1280 --height=720 --fovy=48.8 --freq=7.5 --verbose"
 
-  kiwi-view:
-    container_name: kiwi-view
-    image: chalmersrevere/opendlv-vehicle-view-multi:v0.0.60
-    restart: always
+  opendlv-kiwi-view:
+    image: chrberger/opendlv-kiwi-view-webrtc-multi:v0.0.6
     network_mode: "host"
     volumes:
-      - /home/pi/recordings:/opt/vehicle-view/recordings
+      - ~/recordings:/opt/vehicle-view/recordings
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
+      - PORT=8081
       - OD4SESSION_CID=111
-      - OPENDLV_VEHICLE_VIEW_PLATFORM=Kiwi 
-    ports:
-      - "8081:8081"
+      - PLAYBACK_OD4SESSION_CID=253
 ```
 
 Example to run two Kiwi cars in the same simulation (OD4 CIDs 111 and 112). 
@@ -88,7 +85,7 @@ services:
       - /tmp:/tmp
     environment:
       - DISPLAY=${DISPLAY}
-    command: "--cid=111 --frame-id=0 --map-path=/opt/map --x=0.0 --z=0.095 --width=1280 --height=720 --fovy=48.8 --freq=7 --timemod=0.2 --verbose"
+    command: "--cid=111 --frame-id=0 --map-path=/opt/map --x=0.0 --z=0.095 --width=1280 --height=720 --fovy=48.8 --freq=7.5 --timemod=0.2 --verbose"
 
   opendlv-kiwi-view-1:
     image: chrberger/opendlv-kiwi-view-webrtc-multi:v0.0.6
