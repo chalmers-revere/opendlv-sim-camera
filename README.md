@@ -57,34 +57,24 @@ services:
 
 Example to run two Kiwi cars in the same simulation (OD4 CIDs 111 and 112). 
 Each car has its own web interface for control (ports 8081 and 8082), and one car 
-has a simulated camera:
+has a simulated camera. Note the 'timemod' parameter, which makes the simulation run
+slower. This might be important for example when running on VirtualBox as it uses
+software rendering.
 ```
 version: '2'
 
 services:
-
   sim-global-1:
     image: chalmersrevere/opendlv-sim-global-amd64:v0.0.6
     network_mode: "host"
-    command: "/usr/bin/opendlv-sim-global --cid=111 --freq=50 --frame-id=0 --x=0.9 --y=1.6 --yaw=-3.14 --extra-cid-out=112:1"
+    command: "/usr/bin/opendlv-sim-global --cid=111 --freq=50 --timemod=0.2 --frame-id=0 --x=0.9 --y=1.6 --yaw=-3.14 --extra-cid-out=112:1"
 
   sim-motor-kiwi-1:
     image: chalmersrevere/opendlv-sim-motor-kiwi-amd64:v0.0.7
     network_mode: "host"
-    command: "/usr/bin/opendlv-sim-motor-kiwi --cid=111 --freq=200 --frame-id=0"
+    command: "/usr/bin/opendlv-sim-motor-kiwi --cid=111 --freq=200 --timemod=0.2 --frame-id=0"
 
-  opendlv-kiwi-view-webrtc-armhf-1:
-    image: chrberger/opendlv-kiwi-view-webrtc-multi:v0.0.6
-    network_mode: "host"
-    volumes:
-      - ~/recordings:/opt/vehicle-view/recordings
-      - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      - PORT=8081
-      - OD4SESSION_CID=111
-      - PLAYBACK_OD4SESSION_CID=253
-    
-  sim-camera:
+  sim-camera-1:
     container_name: sim-camera
     image: chalmersrevere/opendlv-sim-camera:1_mesa
     ipc: "host"
@@ -94,20 +84,31 @@ services:
       - /tmp:/tmp
     environment:
       - DISPLAY=${DISPLAY}
-    command: "--cid=111 --frame-id=0 --map-path=/opt/map --x=0.0 --z=0.095 --width=1280 --height=720 --fovy=48.8 --freq=7 --verbose"
-  
+    command: "--cid=111 --frame-id=0 --map-path=/opt/map --x=0.0 --z=0.095 --width=1280 --height=720 --fovy=48.8 --freq=7 --timemod=0.2 --verbose"
 
+  opendlv-kiwi-view-1:
+    image: chrberger/opendlv-kiwi-view-webrtc-multi:v0.0.6
+    network_mode: "host"
+    volumes:
+      - ~/recordings:/opt/vehicle-view/recordings
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - PORT=8081
+      - OD4SESSION_CID=111
+      - PLAYBACK_OD4SESSION_CID=253
+
+  
   sim-global-2:
     image: chalmersrevere/opendlv-sim-global-amd64:v0.0.6
     network_mode: "host"
-    command: "/usr/bin/opendlv-sim-global --cid=112 --freq=50 --frame-id=0 --x=1.9 --y=1.6 --yaw=-3.14 --extra-cid-out=111:1"
+    command: "/usr/bin/opendlv-sim-global --cid=112 --freq=50 --timemod=0.2 --frame-id=0 --x=1.9 --y=1.6 --yaw=-3.14 --extra-cid-out=111:1"
 
   sim-motor-kiwi-2:
     image: chalmersrevere/opendlv-sim-motor-kiwi-amd64:v0.0.7
     network_mode: "host"
-    command: "/usr/bin/opendlv-sim-motor-kiwi --cid=112 --freq=200 --frame-id=0"
+    command: "/usr/bin/opendlv-sim-motor-kiwi --cid=112 --freq=200 --timemod=0.2 --frame-id=0"
 
-  opendlv-kiwi-view-webrtc-armhf-2:
+  opendlv-kiwi-view-2:
     image: chrberger/opendlv-kiwi-view-webrtc-multi:v0.0.6
     network_mode: "host"
     volumes:
