@@ -531,6 +531,17 @@ int32_t main(int32_t argc, char **argv) {
         (commandlineArguments["yaw"].size() != 0) 
         ? std::stod(commandlineArguments["yaw"]) : 0.0));
 
+    uint32_t const memSize = width * height * 4;
+    cluon::SharedMemory sharedMemoryArgb(nameArgb, memSize);
+    cluon::SharedMemory sharedMemoryI420(nameI420, memSize);
+    if (verbose) {
+      std::clog << "Created shared memory " << nameArgb << " (" << memSize 
+        << " bytes) for an ARGB image (width = " << width << ", height = " 
+        << height << ")." << std::endl;
+      std::clog << "Created shared memory " << nameI420 << " (" << memSize 
+        << " bytes) for an I420 image (width = " << width << ", height = " 
+        << height << ")." << std::endl;
+    }
 
     Display *display = XOpenDisplay(nullptr);
     if (!display) {
@@ -975,18 +986,6 @@ void main()
         }
       }
       meshHandles = loadModels(modelInfo, blockInfo, vbo, verbose);
-    }
-
-    uint32_t const memSize = width * height * 4;
-    cluon::SharedMemory sharedMemoryArgb(nameArgb, memSize);
-    cluon::SharedMemory sharedMemoryI420(nameI420, memSize);
-    if (verbose) {
-      std::clog << "Created shared memory " << nameArgb << " (" << memSize 
-        << " bytes) for an ARGB image (width = " << width << ", height = " 
-        << height << ")." << std::endl;
-      std::clog << "Created shared memory " << nameI420 << " (" << memSize 
-        << " bytes) for an I420 image (width = " << width << ", height = " 
-        << height << ")." << std::endl;
     }
     
     std::mutex meshInstancesFrameMutex;
