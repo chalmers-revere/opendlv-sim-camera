@@ -23,12 +23,12 @@ version: "3.6"
 
 services:
   sim-global:
-    image: chalmersrevere/opendlv-sim-global-amd64:v0.0.6
+    image: chalmersrevere/opendlv-sim-global-amd64:v0.0.7
     network_mode: "host"
     command: "/usr/bin/opendlv-sim-global --cid=111 --freq=20 --frame-id=0 --x=0.0 --yaw=0.2"
 
   sim-motor-kiwi:
-    image: chalmersrevere/opendlv-sim-motor-kiwi-amd64:v0.0.6
+    image: chalmersrevere/opendlv-sim-motor-kiwi-amd64:v0.0.7
     network_mode: "host"
     command: "/usr/bin/opendlv-sim-motor-kiwi --cid=111 --freq=50 --frame-id=0"
 
@@ -69,7 +69,7 @@ version: '2'
 
 services:
   sim-global-1:
-    image: chalmersrevere/opendlv-sim-global-amd64:v0.0.6
+    image: chalmersrevere/opendlv-sim-global-amd64:v0.0.7
     network_mode: "host"
     command: "/usr/bin/opendlv-sim-global --cid=111 --freq=50 --timemod=0.2 --frame-id=0 --x=0.9 --y=1.6 --yaw=-3.14 --extra-cid-out=112:1"
 
@@ -103,7 +103,7 @@ services:
 
   
   sim-global-2:
-    image: chalmersrevere/opendlv-sim-global-amd64:v0.0.6
+    image: chalmersrevere/opendlv-sim-global-amd64:v0.0.7
     network_mode: "host"
     command: "/usr/bin/opendlv-sim-global --cid=112 --freq=50 --timemod=0.2 --frame-id=0 --x=1.9 --y=1.6 --yaw=-3.14 --extra-cid-out=111:1"
 
