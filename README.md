@@ -68,12 +68,12 @@ services:
   sim-global-1:
     image: chalmersrevere/opendlv-sim-global-amd64:v0.0.7
     network_mode: "host"
-    command: "/usr/bin/opendlv-sim-global --cid=111 --freq=50 --timemod=0.2 --frame-id=0 --x=0.9 --y=1.6 --yaw=-3.14 --extra-cid-out=112:1"
+    command: "/usr/bin/opendlv-sim-global --cid=111 --freq=50 --timemod=1.0 --frame-id=0 --x=0.9 --y=1.6 --yaw=-3.14 --extra-cid-out=112:1"
 
   sim-motor-kiwi-1:
     image: chalmersrevere/opendlv-sim-motor-kiwi-amd64:v0.0.7
     network_mode: "host"
-    command: "/usr/bin/opendlv-sim-motor-kiwi --cid=111 --freq=200 --timemod=0.2 --frame-id=0"
+    command: "/usr/bin/opendlv-sim-motor-kiwi --cid=111 --freq=200 --timemod=1.0 --frame-id=0"
 
   sim-camera-1:
     container_name: sim-camera
@@ -85,7 +85,7 @@ services:
       - /tmp:/tmp
     environment:
       - DISPLAY=${DISPLAY}
-    command: "--cid=111 --frame-id=0 --map-path=/opt/map --x=0.0 --z=0.095 --width=1280 --height=720 --fovy=48.8 --freq=7.5 --timemod=0.2 --verbose"
+    command: "--cid=111 --frame-id=0 --map-path=/opt/map --x=0.0 --z=0.095 --width=1280 --height=720 --fovy=48.8 --freq=7.5 --timemod=1.0 --verbose"
 
   opendlv-kiwi-view-1:
     image: chrberger/opendlv-kiwi-view-webrtc-multi:v0.0.6
@@ -102,12 +102,12 @@ services:
   sim-global-2:
     image: chalmersrevere/opendlv-sim-global-amd64:v0.0.7
     network_mode: "host"
-    command: "/usr/bin/opendlv-sim-global --cid=112 --freq=50 --timemod=0.2 --frame-id=0 --x=1.9 --y=1.6 --yaw=-3.14 --extra-cid-out=111:1"
+    command: "/usr/bin/opendlv-sim-global --cid=112 --freq=50 --timemod=1.0 --frame-id=0 --x=1.9 --y=1.6 --yaw=-3.14 --extra-cid-out=111:1"
 
   sim-motor-kiwi-2:
     image: chalmersrevere/opendlv-sim-motor-kiwi-amd64:v0.0.7
     network_mode: "host"
-    command: "/usr/bin/opendlv-sim-motor-kiwi --cid=112 --freq=200 --timemod=0.2 --frame-id=0"
+    command: "/usr/bin/opendlv-sim-motor-kiwi --cid=112 --freq=200 --timemod=1.0 --frame-id=0"
 
   opendlv-kiwi-view-2:
     image: chrberger/opendlv-kiwi-view-webrtc-multi:v0.0.6
