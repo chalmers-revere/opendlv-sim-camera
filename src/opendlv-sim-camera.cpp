@@ -85,14 +85,17 @@ struct BlockInfo {
   glm::vec3 color;
   glm::vec3 dimension;
   glm::vec2 textureSize;
+  bool isOrthogonal;
 
   BlockInfo(std::string const &a_name, glm::vec3 a_dimension,
-      std::string const &a_textureFilename, glm::vec2 a_textureSize):
+      std::string const &a_textureFilename, glm::vec2 a_textureSize,
+      bool a_isOrthogonal):
     name(a_name),
     textureFilename(a_textureFilename),
     color(),
     dimension(a_dimension),
-    textureSize(a_textureSize) {}
+    textureSize(a_textureSize),
+    isOrthogonal(a_isOrthogonal) {}
   
   BlockInfo(std::string const &a_name, glm::vec3 a_dimension,
       glm::vec3 a_color):
@@ -100,7 +103,8 @@ struct BlockInfo {
     textureFilename(),
     color(a_color),
     dimension(a_dimension),
-    textureSize() {}
+    textureSize(),
+    isOrthogonal(false) {}
 };
 
 struct ModelInfo {
@@ -129,18 +133,22 @@ struct MeshHandle {
   GLuint textureId;
   uint32_t indexOffset;
   uint32_t indexCount;
+  bool isOrthogonal;
 
   MeshHandle():
     vao(),
     textureId(),
     indexOffset(),
-    indexCount() {}
+    indexCount(),
+    isOrthogonal() {}
 
-  MeshHandle(uint32_t a_indexOffset, uint32_t a_indexCount):
+  MeshHandle(uint32_t a_indexOffset, uint32_t a_indexCount,
+      bool a_isOrthogonal):
     vao(),
     textureId(),
     indexOffset(a_indexOffset),
-    indexCount(a_indexCount) {}
+    indexCount(a_indexCount),
+    isOrthogonal(a_isOrthogonal) {}
 };
 
 static bool isExtensionSupported(char const *extList, char const *extension) {
@@ -178,12 +186,14 @@ std::map<std::string, MeshHandle> loadModels(std::vector<ModelInfo> modelInfo,
     std::vector<uint32_t> indices;
     std::string name;
     std::string textureFilename;
+    bool isOrthogonal;
 
     Model(std::string const &a_name):
       vertices(), 
       indices(), 
       name(a_name),
-      textureFilename() {}
+      textureFilename(),
+      isOrthogonal(false) {}
   };
 
   std::vector<Model> models;
@@ -243,7 +253,11 @@ std::map<std::string, MeshHandle> loadModels(std::vector<ModelInfo> modelInfo,
     model.textureFilename = info.textureFilename;
 
     if (verbose) {
-      std::cout << "Generating box '" << info.name << "'" << std::endl;
+      if (!info.isOrthogonal) {
+        std::cout << "Generating box '" << info.name << "'" << std::endl;
+      } else {
+        std::cout << "Generating overlay '" << info.name << "'" << std::endl;
+      }
     }
 
     float const xh = info.dimension.x / 2.0f;
@@ -258,6 +272,12 @@ std::map<std::string, MeshHandle> loadModels(std::vector<ModelInfo> modelInfo,
       ytw = 0.0f;
       yth = 0.0f;
       zth = 0.0f;
+    }
+    if (info.isOrthogonal) {
+      xtw = -1.0f;
+      ytw = -1.0f;
+      yth = -1.0f;
+      zth = -1.0f;
     }
 
     model.vertices.push_back({{-xh, -yh, -zh}, {0.0f, 0.0f}, info.color});
@@ -299,6 +319,8 @@ std::map<std::string, MeshHandle> loadModels(std::vector<ModelInfo> modelInfo,
       model.indices.push_back(i + 3);
     }
 
+    model.isOrthogonal = info.isOrthogonal;
+
     models.push_back(model);
   }
 
@@ -335,7 +357,8 @@ std::map<std::string, MeshHandle> loadModels(std::vector<ModelInfo> modelInfo,
         uint32_t dataSize = model.indices.size() * sizeof(uint32_t);
         glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, bufferPos, dataSize,
             model.indices.data());
-        handles[model.name] = MeshHandle(bufferPos, model.indices.size());
+        handles[model.name] = MeshHandle(bufferPos, model.indices.size(),
+            model.isOrthogonal);
         bufferPos += dataSize;
       }
     }
@@ -351,8 +374,8 @@ std::map<std::string, MeshHandle> loadModels(std::vector<ModelInfo> modelInfo,
 
       glGenTextures(1, &handles[model.name].textureId);
       glBindTexture(GL_TEXTURE_2D, handles[model.name].textureId);
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE,
-          reinterpret_cast<void *>(tex));
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA,
+          GL_UNSIGNED_BYTE, reinterpret_cast<void *>(tex));
 
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -728,7 +751,6 @@ int32_t main(int32_t argc, char **argv) {
     GLint mvpId;
     GLint doI420Id;
     {
-      /*
       std::string vertexShaderGlsl = R"(#version 430
 
 in layout(location=0) vec3 position0;
@@ -758,7 +780,7 @@ out vec4 color2;
 uniform sampler2D mySampler;
 uniform bool u_do_i420;
 
-const mat4 rgbToYuv = mat4(
+const mat4 rgbaToYuv = mat4(
   0.257,  0.439, -0.148, 0.0,
   0.504, -0.368, -0.291, 0.0,
   0.098, -0.071,  0.439, 0.0,
@@ -767,20 +789,21 @@ const mat4 rgbToYuv = mat4(
 
 void main()
 {
-  vec3 rgb;
+  vec4 rgba;
   if (uv1 != vec2(0.0, 0.0)) {
-    rgb = texture(mySampler, uv1).rgb;
+    rgba = texture(mySampler, uv1).rgba;
   } else {
-    rgb = color1;
+    rgba = vec4(color1, 1.0);
   }
   if (u_do_i420) {
-    color2 = rgbToYuv * vec4(rgb, 1.0);
+    color2 = rgbaToYuv * rgba;
   } else {
-    color2 = vec4(rgb, 1.0);
+    color2 = rgba;
   }
 })";
-*/
+
       
+    /*
       std::string vertexShaderGlsl = R"(#version 120
 
 attribute vec3 position0;
@@ -808,7 +831,7 @@ varying vec2 uv1;
 uniform sampler2D mySampler;
 uniform bool u_do_i420;
 
-const mat4 rgbToYuv = mat4(
+const mat4 rgbaToYuv = mat4(
   0.257,  0.439, -0.148, 0.0,
   0.504, -0.368, -0.291, 0.0,
   0.098, -0.071,  0.439, 0.0,
@@ -817,18 +840,19 @@ const mat4 rgbToYuv = mat4(
 
 void main()
 {
-  vec3 rgb;
+  vec4 rgba;
   if (uv1 != vec2(0.0, 0.0)) {
-    rgb = texture2D(mySampler, uv1).rgb;
+    rgba = texture2D(mySampler, uv1).rgba;
   } else {
-    rgb = color1;
+    rgba = vec4(color1, 1.0);
   }
   if (u_do_i420) {
-    gl_FragColor = rgbToYuv * vec4(rgb, 1.0);
+    gl_FragColor = rgbaToYuv * rgba;
   } else {
-    gl_FragColor = vec4(rgb, 1.0);
+    gl_FragColor = rgba;
   }
 })";
+*/
 
       bool shaderError{false};
       programId = buildShaders(vertexShaderGlsl, fragmentShaderGlsl);
@@ -973,8 +997,8 @@ void main()
             std::string textureFile = j["textureFile"];
             float t0 = j["textureSize"][0];
             float t1 = j["textureSize"][1];
-            blockInfo.push_back({name, glm::vec3(d0, d1, d2), 
-                mapPath + "/" + textureFile, glm::vec2(t0, t1)});
+            blockInfo.push_back({name, glm::vec3(d0, d1, d2),
+                mapPath + "/" + textureFile, glm::vec2(t0, t1), false});
           }
           for (auto const &i : j["instances"]) {
             float x = i[0];
@@ -982,6 +1006,22 @@ void main()
             float z = i[2];
             float a = i[3];
             meshInstances.push_back({name, glm::vec3(x, y, z), a, true});
+          }
+        }
+      }
+      if (json.find("overlay") != json.end()) {
+        for (auto const &j : json["overlay"]) {
+          std::string name = j["name"];
+          float d0 = static_cast<float>(j["dimension"][0]) * width;
+          float d1 = static_cast<float>(j["dimension"][1]) * height;
+          std::string textureFile = j["textureFile"];
+          blockInfo.push_back({name, glm::vec3(d0, d1, 0.1),
+              mapPath + "/" + textureFile, glm::vec2(1.0, 1.0), true});
+
+          for (auto const &i : j["instances"]) {
+            float x = static_cast<float>(i[0]) * width + 0.5f * d0;
+            float y = static_cast<float>(i[1]) * height + 0.5f * d1;
+            meshInstances.push_back({name, glm::vec3(x, y, 0.0), 0.0, true});
           }
         }
       }
@@ -1008,7 +1048,7 @@ void main()
         if (frameId == senderStamp) {
           glm::vec3 position = framePos + mountPos;
 
-          double verticalAngle = 0.0f;//frame.pitch() + mountRot.y;
+          double verticalAngle = frame.pitch() + mountRot.y; 
 
           glm::vec3 direction(
               std::cos(verticalAngle) * std::sin(horizontalAngle), 
@@ -1033,9 +1073,13 @@ void main()
         }
       }};
 
-    glm::mat4 proj = glm::perspective(glm::radians(fovy), aspect, 0.1f, 100.0f);
-    auto drawScene{[&hasFrame, &meshInstances, &meshHandles, &mvpId, &proj,
-      &view, &viewMutex, &meshInstancesFrame, &meshInstancesFrameMutex]() {
+    glm::mat4 projP = glm::perspective(glm::radians(fovy), aspect, 0.1f,
+        100.0f);
+    glm::mat4 projO = glm::ortho(0.0f, static_cast<float>(width),
+        static_cast<float>(height), 0.0f, -1.0f, 1.0f);
+    auto drawScene{[&hasFrame, &meshInstances, &meshHandles, &mvpId,
+      &projP, &projO, &view, &viewMutex, &meshInstancesFrame,
+      &meshInstancesFrameMutex]() {
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
       if (hasFrame) {
@@ -1049,12 +1093,20 @@ void main()
         }
 
         for (auto const &mi : mis) {
+          bool isOverlay = meshHandles[mi.name].isOrthogonal;
+
           glm::mat4 model = glm::mat4(1.0f);
           model = glm::translate(model, mi.position);
           model = glm::rotate(model, glm::pi<float>() - mi.rotation, 
               glm::vec3(0.0f, 0.0f, 1.0f));
 
-          glm::mat4 mvp = proj * view * model;
+          glm::mat4 mvp;
+          if (!isOverlay) {
+            mvp = projP * view * model;
+          } else {
+            mvp = projO * model;
+            glDepthMask(false);
+          }
           glUniformMatrix4fv(mvpId, 1, GL_FALSE, &mvp[0][0]);
           
           if (meshHandles[mi.name].textureId != 0) {
@@ -1066,20 +1118,25 @@ void main()
               reinterpret_cast<void *>(meshHandles[mi.name].indexOffset));
           
           glBindVertexArray(0);
+
+          if (isOverlay) {
+            glDepthMask(true);
+
+          }
         }
       }
     }};
 
     std::vector<uint8_t> buf(memSize);
     bool flippedY{false};
-    auto atFrequency{[&doI420Id, &fbo, &proj, &width, &height, &memSize, &buf,
+    auto atFrequency{[&doI420Id, &fbo, &projP, &width, &height, &memSize, &buf,
       &flippedY, &sharedMemoryArgb, &sharedMemoryI420, &drawScene, &display,
       &win, &verbose]() -> bool
       {
         cluon::data::TimeStamp sampleTimeStamp = cluon::time::now();
 
         if (!flippedY) {
-          proj *= glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, -1.0f, 1.0f));
+          projP *= glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, -1.0f, 1.0f));
           flippedY = true;
         }
         glBindFramebuffer(GL_FRAMEBUFFER, fbo[0]);
@@ -1110,7 +1167,7 @@ void main()
 
         if (verbose) {
           if (flippedY) {
-            proj *= glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, -1.0f, 1.0f));
+            projP *= glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, -1.0f, 1.0f));
             flippedY = false;
           }
           glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -1122,9 +1179,14 @@ void main()
         return true;
       }};
 
+    glClearDepth(1.0f);
     glClearColor(0.2f, 0.2f, 0.2f, 0.0f);
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+
     glUseProgram(programId);
 
     cluon::OD4Session od4{cid};
