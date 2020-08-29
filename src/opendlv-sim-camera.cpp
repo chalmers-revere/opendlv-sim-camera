@@ -1072,14 +1072,19 @@ void main()
             static_cast<float>(horizontalAngle);
         }
       }};
-
-    glm::mat4 projP = glm::perspective(glm::radians(fovy), aspect, 0.1f,
+    
+    glm::mat4 pp = glm::perspective(glm::radians(fovy), aspect, 0.1f,
         100.0f);
-    glm::mat4 projO = glm::ortho(0.0f, static_cast<float>(width),
+    glm::mat4 ppf = pp 
+        * glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, -1.0f, 1.0f));
+    glm::mat4 po = glm::ortho(0.0f, static_cast<float>(width),
         static_cast<float>(height), 0.0f, -1.0f, 1.0f);
+    glm::mat4 pof = glm::ortho(0.0f, static_cast<float>(width),
+        0.0f, static_cast<float>(height), -1.0f, 1.0f);
+
     auto drawScene{[&hasFrame, &meshInstances, &meshHandles, &mvpId,
-      &projP, &projO, &view, &viewMutex, &meshInstancesFrame,
-      &meshInstancesFrameMutex]() {
+      &pp, &ppf, &po, &pof, &view, &viewMutex, &meshInstancesFrame,
+      &meshInstancesFrameMutex](bool isFlippedY) {
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
       if (hasFrame) {
@@ -1094,6 +1099,13 @@ void main()
 
         for (auto const &mi : mis) {
           bool isOverlay = meshHandles[mi.name].isOrthogonal;
+
+          glm::mat4 projP = pp;
+          glm::mat4 projO = po;
+          if (isFlippedY) {
+            projP = ppf;
+            projO = pof;
+          }
 
           glm::mat4 model = glm::mat4(1.0f);
           model = glm::translate(model, mi.position);
@@ -1128,21 +1140,16 @@ void main()
     }};
 
     std::vector<uint8_t> buf(memSize);
-    bool flippedY{false};
-    auto atFrequency{[&doI420Id, &fbo, &projP, &width, &height, &memSize, &buf,
-      &flippedY, &sharedMemoryArgb, &sharedMemoryI420, &drawScene, &display,
-      &win, &verbose]() -> bool
+    auto atFrequency{[&doI420Id, &fbo, &width, &height, &memSize, &buf,
+      &sharedMemoryArgb, &sharedMemoryI420, &drawScene, &display, &win,
+      &verbose]() -> bool
       {
         cluon::data::TimeStamp sampleTimeStamp = cluon::time::now();
 
-        if (!flippedY) {
-          projP *= glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, -1.0f, 1.0f));
-          flippedY = true;
-        }
         glBindFramebuffer(GL_FRAMEBUFFER, fbo[0]);
         glReadBuffer(GL_COLOR_ATTACHMENT0);
         glUniform1i(doI420Id, 0);
-        drawScene();
+        drawScene(true);
         glReadPixels(0, 0, width, height, GL_BGRA, GL_UNSIGNED_BYTE, &buf[0]);
         sharedMemoryArgb.lock();
         sharedMemoryArgb.setTimeStamp(sampleTimeStamp);
@@ -1155,7 +1162,7 @@ void main()
         glBindFramebuffer(GL_FRAMEBUFFER, fbo[1]);
         glReadBuffer(GL_COLOR_ATTACHMENT0);
         glUniform1i(doI420Id, 1);
-        drawScene();
+        drawScene(true);
         glReadPixels(0, 0, width, height, GL_BGRA, GL_UNSIGNED_BYTE, &buf[0]);
         sharedMemoryI420.lock();
         sharedMemoryI420.setTimeStamp(sampleTimeStamp);
@@ -1166,13 +1173,9 @@ void main()
         sharedMemoryI420.notifyAll();
 
         if (verbose) {
-          if (flippedY) {
-            projP *= glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, -1.0f, 1.0f));
-            flippedY = false;
-          }
           glBindFramebuffer(GL_FRAMEBUFFER, 0);
           glUniform1i(doI420Id, 0);
-          drawScene();
+          drawScene(false);
   
           glXSwapBuffers(display, win);
         }
