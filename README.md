@@ -6,6 +6,8 @@
 
 ## Usage
 
+TODO: Test properly. "--privileged" seems to be needed for Intel access. Is the software rendering inside the mesa image the same as the special software renderer image?
+
 To run this microservice using Docker 
 start it as follows:
 

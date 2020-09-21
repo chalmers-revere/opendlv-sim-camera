@@ -751,34 +751,35 @@ int32_t main(int32_t argc, char **argv) {
     GLint mvpId;
     GLint doI420Id;
     {
-      std::string vertexShaderGlsl = R"(#version 430
+      std::string vertexShaderGlsl = R"(#version 300 es
 
-in layout(location=0) vec3 position0;
-in layout(location=1) vec3 color0;
-in layout(location=2) vec2 uv0;
-
-uniform mat4 u_mvp;
+layout(location = 0) in vec3 position0;
+layout(location = 1) in vec3 color0;
+layout(location = 2) in vec2 uv0;
 
 out vec3 color1;
 out vec2 uv1;
 
+uniform mat4 u_mvp;
+
 void main()
 {
   vec4 v = vec4(position0, 1.0);
-  gl_Position =  u_mvp * v;
+  gl_Position = u_mvp * v;
   color1 = color0;
   uv1 = uv0;
 })";
 
-      std::string fragmentShaderGlsl = R"(#version 430
+      std::string fragmentShaderGlsl = R"(#version 300 es
+precision mediump float;
+precision highp int;
 
-in vec3 color1;
-in vec2 uv1;
-
-out vec4 color2;
-
-uniform sampler2D mySampler;
+uniform highp sampler2D mySampler;
 uniform bool u_do_i420;
+
+in highp vec2 uv1;
+in highp vec3 color1;
+layout(location = 2) out highp vec4 color2;
 
 const mat4 rgbaToYuv = mat4(
   0.257,  0.439, -0.148, 0.0,
@@ -789,9 +790,10 @@ const mat4 rgbaToYuv = mat4(
 
 void main()
 {
-  vec4 rgba;
-  if (uv1 != vec2(0.0, 0.0)) {
-    rgba = texture(mySampler, uv1).rgba;
+  highp vec4 rgba;
+  
+  if (any(notEqual(uv1, vec2(0.0)))) {
+    rgba = texture(mySampler, uv1);
   } else {
     rgba = vec4(color1, 1.0);
   }
@@ -801,58 +803,6 @@ void main()
     color2 = rgba;
   }
 })";
-
-      
-    /*
-      std::string vertexShaderGlsl = R"(#version 120
-
-attribute vec3 position0;
-attribute vec3 color0;
-attribute vec2 uv0;
-
-uniform mat4 u_mvp;
-
-varying vec3 color1;
-varying vec2 uv1;
-
-void main()
-{
-  vec4 v = vec4(position0, 1.0);
-  gl_Position =  u_mvp * v;
-  color1 = color0;
-  uv1 = uv0;
-})";
-
-      std::string fragmentShaderGlsl = R"(#version 120
-
-varying vec3 color1;
-varying vec2 uv1;
-
-uniform sampler2D mySampler;
-uniform bool u_do_i420;
-
-const mat4 rgbaToYuv = mat4(
-  0.257,  0.439, -0.148, 0.0,
-  0.504, -0.368, -0.291, 0.0,
-  0.098, -0.071,  0.439, 0.0,
-  0.0625, 0.500,  0.500, 1.0
-);
-
-void main()
-{
-  vec4 rgba;
-  if (uv1 != vec2(0.0, 0.0)) {
-    rgba = texture2D(mySampler, uv1).rgba;
-  } else {
-    rgba = vec4(color1, 1.0);
-  }
-  if (u_do_i420) {
-    gl_FragColor = rgbaToYuv * rgba;
-  } else {
-    gl_FragColor = rgba;
-  }
-})";
-*/
 
       bool shaderError{false};
       programId = buildShaders(vertexShaderGlsl, fragmentShaderGlsl);
