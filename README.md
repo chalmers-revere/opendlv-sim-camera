@@ -7,15 +7,31 @@
 ## Usage
 
 To run this microservice using Docker 
-start it as follows:
+start it as follows.
+
+For Intel GPUs:
 
 ```
-docker run --rm -ti --init --ipc=host --net=host -v ${PWD}/myMap:/opt/map -v /tmp:/tmp -e DISPLAY=$DISPLAY chalmersrevere/opendlv-sim-camera-mesa:v0.0.2 --cid=111 --frame-id=0 --map-path=/opt/map --x=0.0 --z=0.095 --width=1280 --height=720 --fovy=48.8 --freq=7.5 --verbose
+docker run --rm -ti --init --ipc=host --net=host -v ${PWD}/myMap:/opt/map -v /tmp:/tmp -e DISPLAY=$DISPLAY chalmersrevere/opendlv-sim-camera:v0.0.2-mesa --cid=111 --frame-id=0 --map-path=/opt/map --x=0.0 --z=0.095 --width=1280 --height=720 --fovy=48.8 --freq=7.5 --verbose
 ```
-for the mesa version, for Intel GPUs and software rendering (VirtualBox). To use the Nvidia version, run
+
+For Nvidia GPUs:
 ```
-docker run --rm -ti --init --gpus all --ipc=host --net=host -v ${PWD}/myMap:/opt/map -v /tmp:/tmp -e DISPLAY=$DISPLAY chalmersrevere/opendlv-sim-camera-nvidia:v0.0.2 --cid=111 --frame-id=0 --map-path=/opt/map --x=0.0 --z=0.095 --width=1280 --height=720 --fovy=48.8 --freq=7.5 --verbose
+docker run --rm -ti --init --gpus all --ipc=host --net=host -v ${PWD}/myMap:/opt/map -v /tmp:/tmp -e DISPLAY=$DISPLAY chalmersrevere/opendlv-sim-camera:v0.0.2-nvidia --cid=111 --frame-id=0 --map-path=/opt/map --x=0.0 --z=0.095 --width=1280 --height=720 --fovy=48.8 --freq=7.5 --verbose
 ```
+Make sure that Nvidia works in Docker by running
+```
+docker run --gpus all nvidia/cuda:11.3.0-runtime-ubuntu20.04 nvidia-smi
+```
+
+For software rendering (for example in VirtualBox):
+```
+docker run --rm -ti --init --ipc=host --net=host -v ${PWD}/myMap:/opt/map -v /tmp:/tmp -e DISPLAY=$DISPLAY chalmersrevere/opendlv-sim-camera:v0.0.2-swr --cid=111 --frame-id=0 --map-path=/opt/map --x=0.0 --z=0.095 --width=1280 --height=720 --fovy=48.8 --freq=7.5 --verbose
+```
+
+Note: The output image will painted gray as long as no opendlv-sim-global microservice is running.
+
+### Using Docker compose
 
 To run a complete camera simulation using docker-compose:
 ```
@@ -34,7 +50,7 @@ services:
 
   sim-camera:
     container_name: sim-camera
-    image: chalmersrevere/opendlv-sim-camera-mesa:v0.0.2
+    image: chalmersrevere/opendlv-sim-camera:v0.0.2-mesa
     ipc: "host"
     network_mode: "host"
     volumes:
@@ -77,7 +93,7 @@ services:
 
   sim-camera-1:
     container_name: sim-camera
-    image: chalmersrevere/opendlv-sim-camera-mesa:v0.0.2
+    image: chalmersrevere/opendlv-sim-camera:v0.0.2-mesa
     ipc: "host"
     network_mode: "host"
     volumes:

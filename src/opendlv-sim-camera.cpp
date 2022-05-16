@@ -751,6 +751,7 @@ int32_t main(int32_t argc, char **argv) {
     GLint mvpId;
     GLint doI420Id;
     {
+      /*
       std::string vertexShaderGlsl = R"(#version 430
 
 in layout(location=0) vec3 position0;
@@ -801,9 +802,8 @@ void main()
     color2 = rgba;
   }
 })";
-
+*/
       
-    /*
       std::string vertexShaderGlsl = R"(#version 120
 
 attribute vec3 position0;
@@ -852,7 +852,6 @@ void main()
     gl_FragColor = rgba;
   }
 })";
-*/
 
       bool shaderError{false};
       programId = buildShaders(vertexShaderGlsl, fragmentShaderGlsl);
