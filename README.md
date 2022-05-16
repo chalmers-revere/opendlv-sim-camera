@@ -1,4 +1,4 @@
-## OpenDLV microservice to simulate a camera
+# OpenDLV microservice to simulate a camera
 
 [![License: GPLv3](https://img.shields.io/badge/license-GPL--3-blue.svg
 )](https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -6,32 +6,39 @@
 
 ## Usage
 
-To run this microservice using Docker 
-start it as follows.
+To run this microservice using Docker start it as follows. Make sure to first run `xhost +` to allow Docker to display the graphical window. The below was tested on Wayland.
 
-For Intel GPUs:
+Note: The output image will painted gray as long as no opendlv-sim-global microservice is running.
+
+### Intel GPUs
 
 ```
-docker run --rm -ti --init --ipc=host --net=host -v ${PWD}/myMap:/opt/map -v /tmp:/tmp -e DISPLAY=$DISPLAY chalmersrevere/opendlv-sim-camera:v0.0.2-mesa --cid=111 --frame-id=0 --map-path=/opt/map --x=0.0 --z=0.095 --width=1280 --height=720 --fovy=48.8 --freq=7.5 --verbose
+docker run --rm -ti --init --device /dev/dri --ipc=host --net=host -v ${PWD}/myMap:/opt/map -v /tmp:/tmp -e DISPLAY=$DISPLAY chalmersrevere/opendlv-sim-camera:v0.0.2-mesa --cid=111 --frame-id=0 --map-path=/opt/map --x=0.0 --z=0.095 --width=1280 --height=720 --fovy=48.8 --freq=7.5 --verbose
 ```
+Note: You need to add `--device /dev/dri` to allow Docker to use the Intel GPU.
 
-For Nvidia GPUs:
+### Nvidia GPUs
+
 ```
 docker run --rm -ti --init --gpus all --ipc=host --net=host -v ${PWD}/myMap:/opt/map -v /tmp:/tmp -e DISPLAY=$DISPLAY chalmersrevere/opendlv-sim-camera:v0.0.2-nvidia --cid=111 --frame-id=0 --map-path=/opt/map --x=0.0 --z=0.095 --width=1280 --height=720 --fovy=48.8 --freq=7.5 --verbose
 ```
+Note: You need to add `--gpus all` to allow Docker to use the Nvidia GPU.
+
+#### Troubleshooting
+
 Make sure that Nvidia works in Docker by running
 ```
 docker run --gpus all nvidia/cuda:11.3.0-runtime-ubuntu20.04 nvidia-smi
 ```
 
-For software rendering (for example in VirtualBox):
+### Software rendering
+
+Useful when for example running in VirtualBox, as virtual machines are not able to access the GPUs of the host system.
 ```
 docker run --rm -ti --init --ipc=host --net=host -v ${PWD}/myMap:/opt/map -v /tmp:/tmp -e DISPLAY=$DISPLAY chalmersrevere/opendlv-sim-camera:v0.0.2-swr --cid=111 --frame-id=0 --map-path=/opt/map --x=0.0 --z=0.095 --width=1280 --height=720 --fovy=48.8 --freq=7.5 --verbose
 ```
 
-Note: The output image will painted gray as long as no opendlv-sim-global microservice is running.
-
-### Using Docker compose
+## Using Docker compose
 
 To run a complete camera simulation using docker-compose:
 ```
@@ -56,6 +63,8 @@ services:
     volumes:
       - ${PWD}/resource/example_map:/opt/map
       - /tmp:/tmp
+    devices:
+      - /dev/dri
     environment:
       - DISPLAY=${DISPLAY}
     command: "--cid=111 --frame-id=0 --map-path=/opt/map --x=0.0 --z=0.095 --width=1280 --height=720 --fovy=48.8 --freq=7.5 --verbose"
@@ -99,6 +108,8 @@ services:
     volumes:
       - ${PWD}/resource/example_map:/opt/map
       - /tmp:/tmp
+    devices:
+      - /dev/dri
     environment:
       - DISPLAY=${DISPLAY}
     command: "--cid=111 --frame-id=0 --map-path=/opt/map --x=0.0 --z=0.095 --width=1280 --height=720 --fovy=48.8 --freq=7.5 --timemod=1.0 --verbose"
