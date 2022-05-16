@@ -10,11 +10,11 @@ To run this microservice using Docker
 start it as follows:
 
 ```
-docker run --rm -ti --init --ipc=host --net=host -v ${PWD}/myMap:/opt/map -v /tmp:/tmp -e DISPLAY=$DISPLAY chalmersrevere/opendlv-sim-camera-mesa:v0.0.1 --cid=111 --frame-id=0 --map-path=/opt/map --x=0.0 --z=0.095 --width=1280 --height=720 --fovy=48.8 --freq=7.5 --verbose
+docker run --rm -ti --init --ipc=host --net=host -v ${PWD}/myMap:/opt/map -v /tmp:/tmp -e DISPLAY=$DISPLAY chalmersrevere/opendlv-sim-camera-mesa:v0.0.2 --cid=111 --frame-id=0 --map-path=/opt/map --x=0.0 --z=0.095 --width=1280 --height=720 --fovy=48.8 --freq=7.5 --verbose
 ```
 for the mesa version, for Intel GPUs and software rendering (VirtualBox). To use the Nvidia version, run
 ```
-docker run --rm -ti --init --ipc=host --net=host -v ${PWD}/myMap:/opt/map -v /tmp:/tmp -e DISPLAY=$DISPLAY chalmersrevere/opendlv-sim-camera-nvidia:v0.0.1 --cid=111 --frame-id=0 --map-path=/opt/map --x=0.0 --z=0.095 --width=1280 --height=720 --fovy=48.8 --freq=7.5 --verbose
+docker run --rm -ti --init --gpus all --ipc=host --net=host -v ${PWD}/myMap:/opt/map -v /tmp:/tmp -e DISPLAY=$DISPLAY chalmersrevere/opendlv-sim-camera-nvidia:v0.0.2 --cid=111 --frame-id=0 --map-path=/opt/map --x=0.0 --z=0.095 --width=1280 --height=720 --fovy=48.8 --freq=7.5 --verbose
 ```
 
 To run a complete camera simulation using docker-compose:
@@ -34,7 +34,7 @@ services:
 
   sim-camera:
     container_name: sim-camera
-    image: chalmersrevere/opendlv-sim-camera-mesa:v0.0.1
+    image: chalmersrevere/opendlv-sim-camera-mesa:v0.0.2
     ipc: "host"
     network_mode: "host"
     volumes:
@@ -77,7 +77,7 @@ services:
 
   sim-camera-1:
     container_name: sim-camera
-    image: chalmersrevere/opendlv-sim-camera-mesa:v0.0.1
+    image: chalmersrevere/opendlv-sim-camera-mesa:v0.0.2
     ipc: "host"
     network_mode: "host"
     volumes:
