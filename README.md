@@ -6,11 +6,13 @@
 
 ## Usage
 
-To run this microservice using Docker start it as follows. Make sure to first run `xhost +` to allow Docker to display the graphical window. The below was tested on Wayland.
+To run this microservice using Docker start it as shown below, depending on what GPU is present on the machine or if using software rendering. Make sure to first run `xhost +` to allow Docker to display the graphical window. The examples were tested on Wayland.
 
-Note: The output image will painted gray as long as no opendlv-sim-global microservice is running.
+Note: The output image will be painted gray as long as there is no `opendlv-sim-global` microservice is running on the given `cid`.
 
 ### Intel GPUs
+
+Run the camera simulation with the following
 
 ```
 docker run --rm -ti --init --device /dev/dri --ipc=host --net=host -v ${PWD}/myMap:/opt/map -v /tmp:/tmp -e DISPLAY=$DISPLAY chalmersrevere/opendlv-sim-camera:v0.0.2-mesa --cid=111 --frame-id=0 --map-path=/opt/map --x=0.0 --z=0.095 --width=1280 --height=720 --fovy=48.8 --freq=7.5 --verbose
@@ -18,6 +20,8 @@ docker run --rm -ti --init --device /dev/dri --ipc=host --net=host -v ${PWD}/myM
 Note: You need to add `--device /dev/dri` to allow Docker to use the Intel GPU.
 
 ### Nvidia GPUs
+
+Run the camera simulation with the following
 
 ```
 docker run --rm -ti --init --gpus all --ipc=host --net=host -v ${PWD}/myMap:/opt/map -v /tmp:/tmp -e DISPLAY=$DISPLAY chalmersrevere/opendlv-sim-camera:v0.0.2-nvidia --cid=111 --frame-id=0 --map-path=/opt/map --x=0.0 --z=0.095 --width=1280 --height=720 --fovy=48.8 --freq=7.5 --verbose
@@ -30,17 +34,18 @@ Make sure that Nvidia works in Docker by running
 ```
 docker run --gpus all nvidia/cuda:11.3.0-runtime-ubuntu20.04 nvidia-smi
 ```
+There should be terminal output with information about the Nvidia GPU installed on the system. If not, please check instructions on how to integrate Nvidia support for your version of Docker.
 
 ### Software rendering
 
-Useful when for example running in VirtualBox, as virtual machines are not able to access the GPUs of the host system.
+Useful when for example running in VirtualBox, as virtual machines are not able to access the GPUs of the host system. Run the camera simulation with the following
 ```
 docker run --rm -ti --init --ipc=host --net=host -v ${PWD}/myMap:/opt/map -v /tmp:/tmp -e DISPLAY=$DISPLAY chalmersrevere/opendlv-sim-camera:v0.0.2-swr --cid=111 --frame-id=0 --map-path=/opt/map --x=0.0 --z=0.095 --width=1280 --height=720 --fovy=48.8 --freq=7.5 --verbose
 ```
 
 ## Using Docker compose
 
-To run a complete camera simulation using docker-compose:
+To run a complete camera simulation using `docker-compose`:
 ```
 version: "3.6"
 
@@ -83,8 +88,8 @@ services:
 
 Example to run two Kiwi cars in the same simulation (OD4 CIDs 111 and 112). 
 Each car has its own web interface for control (ports 8081 and 8082), and one car 
-has a simulated camera. Note the 'timemod' parameter, which makes the simulation run
-slower. This might be important for example when running on VirtualBox as it uses
+has a simulated camera. Note the `timemod` parameter, which makes the simulation run
+slower. This might be important for example when running on a virtual machine as it uses
 software rendering.
 ```
 version: '2'
