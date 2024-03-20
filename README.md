@@ -1,3 +1,5 @@
+Moved to https://git.opendlv.org.
+
 ## OpenDLV microservice to simulate a camera
 
 [![License: GPLv3](https://img.shields.io/badge/license-GPL--3-blue.svg
